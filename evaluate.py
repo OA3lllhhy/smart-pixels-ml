@@ -14,7 +14,7 @@ import numpy as np
 import shutil
 
 # custom code
-from dataloaders.OptimizedDataGenerator import OptimizedDataGenerator
+from OptimizedDataGenerator import OptimizedDataGenerator
 from models import CreateModel
 
 minval=1e-9

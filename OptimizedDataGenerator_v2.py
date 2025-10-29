@@ -265,6 +265,9 @@ class OptimizedDataGenerator(tf.keras.utils.Sequence):
             for future in tqdm(as_completed(futures), total=len(file_infos), desc="Processing Files..."):
                 results.append(future.result())
 
+        # if not results:
+        #     raise ValueError("No files were successfully processed. Check your file paths and data.")
+
         for amean, avariance, amin, amax, num_rows, labels_scale, pos_scale, neg_scale in results:
             self.file_offsets.append(self.file_offsets[-1] + num_rows)
 

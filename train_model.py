@@ -17,9 +17,10 @@ import submitit
 import shutil
 
 # custom code
-from dataloaders.OptimizedDataGenerator import OptimizedDataGenerator
-from loss import *
-from models import *
+# from dataloaders.OptimizedDataGenerator import OptimizedDataGenerator
+from OptimizedDataGenerator import OptimizedDataGenerator
+from loss import custom_loss
+from models import CreateModel
 
 # set gpu growth
 gpus = tf.config.list_physical_devices('GPU')
@@ -57,8 +58,8 @@ def train(
     print(output_directory)
 
     # paths
-    data_directory_path = "/net/projects/particlelab/smartpix/dataset8/unflipped/" # "/net/scratch/badea/dataset8/unflipped/"
-    labels_directory_path = "/net/projects/particlelab/smartpix/dataset8/unflipped/" # "/net/scratch/badea/dataset8/unflipped/"
+    data_directory_path = "./datasets/recon3D/" # "/net/scratch/badea/dataset8/unflipped/"
+    labels_directory_path = "./datasets/labels/" # "/net/scratch/badea/dataset8/unflipped/"
     
     # create tf records directory
     stamp = '%08x' % random.randrange(16**8)
@@ -67,49 +68,79 @@ def train(
 
     # training generator
     start_time = time.time()
+    # training_generator = OptimizedDataGenerator(
+    #     data_directory_path = data_directory_path,
+    #     labels_directory_path = labels_directory_path,
+    #     is_directory_recursive = False,
+    #     file_type = "parquet",
+    #     data_format = "3D",
+    #     batch_size = batch_size,
+    #     file_count = train_file_size,
+    #     to_standardize= True,
+    #     include_y_local= False,
+    #     labels_list = ['x-midplane','y-midplane','cotAlpha','cotBeta'],
+    #     input_shape = (2,13,21), # (20,13,21),
+    #     transpose = (0,2,3,1),
+    #     save=True,
+    #     use_time_stamps = [0,19],
+    #     tfrecords_dir = tfrecords_dir_train,
+    # )
     training_generator = OptimizedDataGenerator(
-        data_directory_path = data_directory_path,
-        labels_directory_path = labels_directory_path,
-        is_directory_recursive = False,
-        file_type = "parquet",
-        data_format = "3D",
-        batch_size = batch_size,
-        file_count = train_file_size,
-        to_standardize= True,
-        include_y_local= False,
-        labels_list = ['x-midplane','y-midplane','cotAlpha','cotBeta'],
-        input_shape = (2,13,21), # (20,13,21),
-        transpose = (0,2,3,1),
-        save=True,
-        use_time_stamps = [0,19],
-        tfrecords_dir = tfrecords_dir_train,
+    load_from_tfrecords_dir = "results/training-4088a5b2/7ea2a2df/weights-nFilters1-poolSize1-checkpoints/tfrecords_train_9b412d44/",
+    shuffle = True,
+    seed = 13,
+    quantize = True
     )
+
     print("--- Training generator %s seconds ---" % (time.time() - start_time))
 
     start_time = time.time()
+    # validation_generator = OptimizedDataGenerator(
+    #     data_directory_path = data_directory_path,
+    #     labels_directory_path = labels_directory_path,
+    #     is_directory_recursive = False,
+    #     file_type = "parquet",
+    #     data_format = "3D",
+    #     batch_size = val_batch_size,
+    #     file_count = val_file_size,
+    #     to_standardize= True,
+    #     include_y_local= False,
+    #     labels_list = ['x-midplane','y-midplane','cotAlpha','cotBeta'],
+    #     input_shape = (2,13,21), # (20,13,21),
+    #     transpose = (0,2,3,1),
+    #     files_from_end=True,
+    #     use_time_stamps = [0,19],
+    #     tfrecords_dir = tfrecords_dir_validation,
+    # )
     validation_generator = OptimizedDataGenerator(
-        data_directory_path = data_directory_path,
-        labels_directory_path = labels_directory_path,
-        is_directory_recursive = False,
-        file_type = "parquet",
-        data_format = "3D",
-        batch_size = val_batch_size,
-        file_count = val_file_size,
-        to_standardize= True,
-        include_y_local= False,
-        labels_list = ['x-midplane','y-midplane','cotAlpha','cotBeta'],
-        input_shape = (2,13,21), # (20,13,21),
-        transpose = (0,2,3,1),
-        files_from_end=True,
-        use_time_stamps = [0,19],
-        tfrecords_dir = tfrecords_dir_validation,
+    load_from_tfrecords_dir = "results/training-4088a5b2/7ea2a2df/weights-nFilters1-poolSize1-checkpoints/tfrecords_validation_9b412d44/",
+    shuffle = True,
+    seed = 13,
+    quantize = True
     )
+
     print("--- Validation generator %s seconds ---" % (time.time() - start_time))
+
+    # print("\n=== Testing simple Keras model ===")
+    # from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense
+    # from tensorflow.keras.models import Model
+    
+    # test_input = Input(shape=(13,21,2))
+    # test_x = Conv2D(5, 3, activation='relu')(test_input)
+    # test_x = Flatten()(test_x)
+    # test_x = Dense(4)(test_x)
+    # model = Model(inputs=test_input, outputs=test_x)
+    # print(f"Simple model parameters: {model.count_params():,}")
+    # model.summary()
+    # model.compile(optimizer=Adam(learning_rate=learning_rate), loss=custom_loss)
 
     # compiles model
     start_time = time.time()
-    model=CreateModel(shape=(13,21,2), n_filters=n_filters, pool_size=pool_size)
+    model = CreateModel((13,21,2), n_filters=5, pool_size=3)
+    print(f"\nModel has {model.count_params():,} parameters")
     model.summary()
+    print(f"Input shape: {model.input_shape}")
+    print(f"Output shape: {model.output_shape}")
     model.compile(optimizer=Adam(learning_rate=learning_rate), loss=custom_loss)
     print("--- Model create and compile %s seconds ---" % (time.time() - start_time))
 
@@ -150,13 +181,23 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # read in query
-    if Path(args.query).resolve().exists():
+    # if Path(args.query).resolve().exists():
+    #     query_path = Path(args.query).resolve()
+    # else:
+    #     # throw
+    #     raise ValueError(f"Could not locate {args.query} in query directory or as absolute path")
+    # with open(query_path) as f:
+    #     query = json.load(f)
+
+    # read in query
+    if args.query is None:
+        query = {"submitit": False}  # Default: run locally without submitit
+    elif Path(args.query).resolve().exists():
         query_path = Path(args.query).resolve()
+        with open(query_path) as f:
+            query = json.load(f)
     else:
-        # throw
-        raise ValueError(f"Could not locate {args.query} in query directory or as absolute path")
-    with open(query_path) as f:
-        query = json.load(f)
+        raise ValueError(f"Could not locate {args.query}")
 
     # create top level output directory
     top_dir = Path("results", f'./training-{"%08x" % random.randrange(16**8)}', "%j").resolve()

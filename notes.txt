@@ -1,0 +1,17 @@
+# Activate virtual environment
+source smart-pixel/bin/activate
+
+# Download files via url links
+wget "url links"
+
+# Back to upper file directory
+cd -
+
+# list current directory
+ls
+
+# Remove file
+rm
+
+# Run train_model.py
+python train_model.py --epochs 10 --njobs 1

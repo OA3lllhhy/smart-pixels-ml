@@ -53,6 +53,25 @@ def conv_network(var, n_filters=5, kernel_size=3):
     var = QActivation("quantized_tanh(4, 0, 1)")(var)    
     return var
 
+def conv_network_3d(var, n_filters=5, kernel_size=3):
+    # 3D convolution across time, x, y dimensions using Keras Conv3D
+    var = Conv3D(
+        n_filters, 
+        kernel_size=(kernel_size, kernel_size, kernel_size),  # (time, x, y)
+        kernel_regularizer=tf.keras.regularizers.L1L2(0.01),
+        activity_regularizer=tf.keras.regularizers.L2(0.01),
+        padding='same'
+    )(var)
+    var = QActivation("quantized_tanh(4, 0, 1)")(var)
+    var = Conv3D(
+        n_filters, 
+        kernel_size=(1, 1, 1),  # 1x1x1 conv for channel mixing
+        kernel_regularizer=tf.keras.regularizers.L1L2(0.01),
+        activity_regularizer=tf.keras.regularizers.L2(0.01),
+    )(var)
+    var = QActivation("quantized_tanh(4, 0, 1)")(var)    
+    return var
+
 def CreateModel(shape, n_filters, pool_size):
     x_base = x_in = Input(shape)
     stack = conv_network(x_base)
@@ -64,5 +83,26 @@ def CreateModel(shape, n_filters, pool_size):
     )(stack)
     stack = QActivation("quantized_bits(8, 0, alpha=1)")(stack)
     stack = var_network(stack, hidden=16, output=14)
+    model = Model(inputs=x_in, outputs=stack)
+    return model
+
+def CreateModel3D(shape, n_filters=5, pool_size=2):
+    # Input shape should be (time_steps, height, width, channels)
+    # e.g., (10, 16, 16, 1) for 10 time steps of 16x16 images
+    x_base = x_in = Input(shape)
+    
+    stack = conv_network_3d(x_base, n_filters=n_filters)
+    
+    # 3D pooling across all dimensions (time, x, y)
+    stack = AveragePooling3D(
+        pool_size=(pool_size, pool_size, pool_size),  # pool across time, x, y
+        strides=None, 
+        padding="valid", 
+        data_format=None,        
+    )(stack)
+    
+    stack = QActivation("quantized_bits(8, 0, alpha=1)")(stack)
+    stack = var_network(stack, hidden=16, output=14)
+    
     model = Model(inputs=x_in, outputs=stack)
     return model

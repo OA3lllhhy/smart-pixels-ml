@@ -1,0 +1,6 @@
+checkpoints*/*
+datasets/*
+tfrecords*/*
+__pycache__/*
+smart-pixel/*
+evaluation_*
