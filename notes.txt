@@ -1,5 +1,9 @@
 # Activate virtual environment
-source smart-pixel/bin/activate
+source /home/submit/haoyun22/smart-pixels-ml/spvenv/bin/activate
+
+
+srun --partition=submit-gpu --gres=gpu:1 --cpus-per-gpu=4 --mem=16G  --pty --cpu-bind=none bash -c "source /home/submit/haoyun22/smart-pixels-ml/smart-pixel/bin/activate && jupyter notebook 
+--no-browser --ip=0.0.0.0 --port=8888"
 
 # Download files via url links
 wget "url links"
@@ -15,3 +19,9 @@ rm
 
 # Run train_model.py
 python train_model.py --epochs 10 --njobs 1
+
+# 申请 1 块 GPU，1 个 CPU
+salloc --partition=submit-gpu --cpus-per-gpu=1 --gres=gpu:1
+
+# Submit batch jobs
+sbatch file_name.sh

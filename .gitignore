@@ -4,3 +4,6 @@ tfrecords*/*
 __pycache__/*
 smart-pixel/*
 evaluation_*
+spvenv*/*
+outfile*/*
+csvlogs*/*
